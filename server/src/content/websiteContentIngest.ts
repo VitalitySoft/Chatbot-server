@@ -22,7 +22,11 @@ const MIN_SECTION_CHARS = 40;
 const CHUNK_WORD_TARGET = 150;
 
 function cleanDoc($: cheerio.CheerioAPI): void {
-  $("script, style, noscript, iframe, svg, nav, footer, header, form, [aria-hidden='true']").remove();
+  // NOT footer: plenty of real-world sites (like ours) keep their only
+  // copy of contact details -- phone, email, address -- in the footer,
+  // nowhere else on the page. Stripping it made "contact us" / "location"
+  // questions unanswerable even when the info was right there on the site.
+  $("script, style, noscript, iframe, svg, nav, header, form, [aria-hidden='true']").remove();
 }
 
 function pickMainContainer($: cheerio.CheerioAPI) {
@@ -66,7 +70,10 @@ function extractByHeadings($: cheerio.CheerioAPI, container: ReturnType<cheerio.
     buffer = [];
   };
 
-  container.find("h1, h2, h3, h4, p, li, td, blockquote").each((_, el) => {
+  // Includes "a": contact details are very often links, not plain text --
+  // <a href="tel:...">, <a href="mailto:...">, e.g. in a footer -- and were
+  // silently invisible to retrieval when only block-level text tags were read.
+  container.find("h1, h2, h3, h4, p, li, td, blockquote, a").each((_, el) => {
     const tag = (el as { tagName?: string }).tagName?.toLowerCase();
     const $el = $(el);
     if (tag === "h1" || tag === "h2" || tag === "h3" || tag === "h4") {
@@ -140,6 +147,18 @@ function extractSections(html: string): ContentSection[] {
     sections = extractByHeadings($, container);
     if (sections.length === 0) sections = extractByChunking(container);
   }
+
+  // pickMainContainer() picks ONE container (<main>, #content, etc) --  on
+  // most real sites <footer> is a sibling of that container, not a
+  // descendant, so contact/address details living only in the footer (very
+  // common) would otherwise never be read no matter which strategy above
+  // ran. Extracted separately here so it's covered either way.
+  const footer = $("footer").first();
+  if (footer.length) {
+    const footerSections = extractByHeadings($, footer);
+    sections = sections.concat(footerSections.length ? footerSections : extractByChunking(footer));
+  }
+
   return sections;
 }
 
