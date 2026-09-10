@@ -180,6 +180,23 @@
   .success-note { color: var(--moss); font-size: 13px; }
   .muted-note { color: var(--text-dim); font-size: 13px; }
 
+  .convo-row { padding: 13px 0; border-top: 1px dashed var(--paper-line); }
+  .convo-row:first-child { border-top: none; padding-top: 2px; }
+  .convo-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+  .convo-asker {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--paper-dim); color: var(--text-dim);
+  }
+  .convo-asker.customer { background: var(--moss-tint); color: var(--moss); }
+  .convo-badge {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--flag-tint); color: var(--flag);
+  }
+  .convo-badge.answered { background: var(--moss-tint); color: var(--moss); }
+  .convo-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+  .convo-q { font-weight: 700; font-size: 13.5px; color: var(--text); margin-bottom: 3px; }
+  .convo-a { color: var(--text-dim); font-size: 12.5px; line-height: 1.5; }
+
   input[type="file"] {
     background: transparent; border: 1.5px dashed var(--paper-line); padding: 12px;
     font-size: 13px; color: var(--text-dim); border-radius: 9px;
@@ -272,6 +289,18 @@
         <div id="docList"></div>
         <p id="docEmptyState" class="empty-note hidden">No documents uploaded yet.</p>
       </div>
+    </section>
+
+    <section>
+      <details class="advanced" id="conversationsDetails">
+        <summary>Conversation log &mdash; every question &amp; answer</summary>
+        <div class="panel">
+          <p class="panel-hint">The full transcript: what visitors asked, what the assistant answered, who asked (a guest, or a logged-in customer by name), and whether it was actually answered.</p>
+          <div id="conversationsDisabledNote" class="empty-note hidden">Not connected to a database yet -- set <code>CHAT_LOG_DATABASE_URL</code> on the server to enable this.</div>
+          <div id="conversationsList"></div>
+          <p id="conversationsEmptyState" class="empty-note hidden">No conversations logged yet.</p>
+        </div>
+      </details>
     </section>
 
     <section>

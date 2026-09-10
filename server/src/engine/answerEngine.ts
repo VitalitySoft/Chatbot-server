@@ -1,6 +1,5 @@
 import { getWebsiteConfig } from "../config/websites";
 import { getKnowledgeBase } from "../data/knowledgeStore";
-import { recordUnansweredQuestion } from "../data/unansweredStore";
 import { getLiveData } from "../db/liveDataStore";
 import { getBookingsForUser, Booking } from "../db/bookingStore";
 import { getWebsiteContent } from "../content/websiteContentIngest";
@@ -11,7 +10,7 @@ import { extractBookingReference } from "../intent/extractBookingReference";
 import { detectSmallTalk } from "../intent/detectSmallTalk";
 import { getSession } from "../auth/session";
 import { fetchBookingByReference, fetchLiveRoomTypes, formatBookingStatus, formatRoomTypeSummary, mentionsSpecificRoomType, findMentionedRoomType } from "../integrations/liveHotelApi";
-import { fetchGenericBooking, fetchGenericInventory, formatInventoryItemSummary, findMentionedItem } from "../integrations/genericDataApi";
+import { fetchGenericBooking, fetchGenericInventory, formatInventoryItemSummary, findMentionedItem, mentionsSpecificItem, isBrowsingInventoryQuestion } from "../integrations/genericDataApi";
 
 export const FALLBACK_ANSWER = "I'm sorry, I don't have enough information to answer that.";
 
@@ -183,21 +182,25 @@ export async function answerQuestion(websiteId: string, message: string, session
         return { answer: `We currently have ${total} room(s) available in total (${byType}).`, humanFallback: false, requiresLogin: false, callPhone: null, sources };
       }
     } else if (site.customApiUrl) {
+      // Only answer immediately when a SPECIFIC real item is named --
+      // that's unambiguous. If the availability word fired but nothing
+      // named matches an actual item (e.g. "is lock room available" on a
+      // fitness studio with no such class), don't assume "total
+      // availability" was meant -- fall through to content scoring
+      // instead, since a knowledge article or website section is often
+      // the real answer (e.g. "Is there a shower or locker room?").
+      // The last-resort inventory listing below (see hasOtherContent)
+      // still catches this for a tenant with nothing else configured.
       const items = await fetchGenericInventory(site.customApiUrl);
       const withCounts = items.filter((i) => i.availableCount !== null);
-      if (withCounts.length > 0) {
+      const specific = findMentionedItem(message, withCounts);
+      if (specific) {
         sources.database = true;
-        const specific = findMentionedItem(message, withCounts);
-        if (specific) {
-          const answer =
-            (specific.availableCount as number) > 0
-              ? `Yes, we currently have ${specific.availableCount} ${specific.name}${specific.availableCount === 1 ? "" : "s"} available.`
-              : `Sorry, we don't have any ${specific.name} available right now.`;
-          return { answer, humanFallback: false, requiresLogin: false, callPhone: null, sources };
-        }
-        const total = withCounts.reduce((sum, i) => sum + (i.availableCount as number), 0);
-        const byItem = withCounts.map((i) => `${i.name}: ${i.availableCount} available`).join(", ");
-        return { answer: `We currently have ${total} available in total (${byItem}).`, humanFallback: false, requiresLogin: false, callPhone: null, sources };
+        const answer =
+          (specific.availableCount as number) > 0
+            ? `Yes, we currently have ${specific.availableCount} ${specific.name}${specific.availableCount === 1 ? "" : "s"} available.`
+            : `Sorry, we don't have any ${specific.name} available right now.`;
+        return { answer, humanFallback: false, requiresLogin: false, callPhone: null, sources };
       }
     } else {
       const liveData = getLiveData(websiteId);
@@ -220,6 +223,21 @@ export async function answerQuestion(websiteId: string, message: string, session
     if (roomTypes.length > 0 && !mentionsSpecificRoomType(message, roomTypes)) {
       sources.website = true;
       const answer = roomTypes.map(formatRoomTypeSummary).join("\n\n");
+      return { answer, humanFallback: false, requiresLogin: false, callPhone: null, sources };
+    }
+  }
+
+  // Same idea for a self-service customer's own inventory, but keyed off
+  // the QUESTION FORM ("what * do you have/offer") instead of a hardcoded
+  // noun like "room" -- their items could be classes, services, products,
+  // anything. Checked here, before content scoring, so a browsing
+  // question can't get hijacked by an unrelated section that just happens
+  // to share a word (e.g. a "Class Policies" FAQ for "what classes do you have").
+  if (site.customApiUrl && isBrowsingInventoryQuestion(message)) {
+    const items = await fetchGenericInventory(site.customApiUrl);
+    if (items.length > 0 && !mentionsSpecificItem(message, items)) {
+      sources.website = true;
+      const answer = items.map(formatInventoryItemSummary).join("\n\n");
       return { answer, humanFallback: false, requiresLogin: false, callPhone: null, sources };
     }
   }
@@ -250,11 +268,18 @@ export async function answerQuestion(websiteId: string, message: string, session
     return { answer: best.content, humanFallback: false, requiresLogin: false, callPhone: null, sources };
   }
 
-  // Priority 3.5: nothing matched a specific topic, but a self-service
-  // customer's own inventory data exists (no hotel-shaped "room" trigger
-  // to key off generically) -- list all of it rather than giving up on
-  // real, available data.
-  if (site.customApiUrl) {
+  // Priority 3.5: nothing matched a specific topic. If this tenant has NO
+  // other content at all (no knowledge articles, no readable website) but
+  // DOES have a connected database, list its inventory rather than giving
+  // up on real, available data -- this is what makes a database-only
+  // tenant (nothing else configured) still answer "what do you have"
+  // style questions. But if real knowledge articles or website content
+  // exist, a near-miss here should fall through to the honest fallback
+  // (and get logged as unanswered) instead of dumping an unrelated
+  // inventory list that has nothing to do with what was actually asked.
+  const hasOtherContent =
+    knowledgeItems.length > 0 || contentSections.some((s) => !s.id.startsWith("custom-inventory-") && !s.id.startsWith("live-room-type-"));
+  if (site.customApiUrl && !hasOtherContent) {
     const items = await fetchGenericInventory(site.customApiUrl);
     if (items.length > 0) {
       sources.website = true;
@@ -262,11 +287,10 @@ export async function answerQuestion(websiteId: string, message: string, session
     }
   }
 
-  // Priority 4 / nothing found anywhere: never guess -- but log it, since
-  // an unanswered question is exactly the signal an admin needs to see to
-  // know what knowledge article to add next.
+  // Priority 4 / nothing found anywhere: never guess. The caller (see
+  // chat.routes.ts) logs this to the conversation log, same as every
+  // other answer -- humanFallback is what marks it "unanswered" there.
   sources.humanFallback = true;
-  recordUnansweredQuestion(websiteId, message);
   return { answer: FALLBACK_ANSWER, humanFallback: true, requiresLogin: false, callPhone: site.humanPhone, sources };
 }
 

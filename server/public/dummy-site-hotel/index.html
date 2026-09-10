@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Demo Hotel</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; color: #1a1a1a; background: #fafafa; }
+  header { background: #0b3d2e; color: #fff; padding: 60px 24px; text-align: center; }
+  header h1 { margin: 0 0 10px; font-size: 32px; }
+  header p { margin: 0; color: #cfe3da; }
+  main { max-width: 700px; margin: 0 auto; padding: 40px 24px 80px; }
+  .note { background: #fff8e1; border: 1px solid #ffe0a3; border-radius: 8px; padding: 16px 18px; font-size: 14px; line-height: 1.6; }
+  .note strong { display: block; margin-bottom: 6px; }
+  .creds { font-family: monospace; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 8px 12px; display: inline-block; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Demo Hotel</h1>
+  <p>A local test page for the booking-status login flow.</p>
+</header>
+
+<main>
+  <div class="note">
+    <strong>To test the login flow:</strong>
+    Click the chat bubble and ask something like <em>"what's my booking status"</em>.
+    The widget will show its built-in login form -- use:
+    <div class="creds">guest1 / guest123</div>
+    <div class="creds">guest2 / guest123</div>
+  </div>
+</main>
+
+<script
+  src="http://localhost:4000/widget.js"
+  data-website-id="hotel-001"
+  data-chat-endpoint="/api/chat-semantic">
+</script>
+
+</body>
+</html>
