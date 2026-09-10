@@ -7,6 +7,8 @@ import { answerQuestionSemantic } from "../engine/answerEngineSemantic";
 import { WebsiteNotFoundError } from "../engine/answerEngine";
 import { getWebsiteConfig } from "../config/websites";
 import { env } from "../config/env";
+import { logConversation } from "../data/conversationLogStore";
+import { resolveAsker } from "../lib/resolveAsker";
 
 // Mirrors chat.routes.ts exactly, except it calls the semantic engine --
 // see answerEngineSemantic.ts for why this is a parallel implementation
@@ -43,6 +45,19 @@ chatSemanticRouter.post(
         callPhone: site?.humanPhone ?? null,
       });
     }
+
+    // See chat.routes.ts for the rationale -- fire-and-forget, logs every
+    // question and answer, never blocks or fails the visitor's response.
+    const { askerType, askerId } = resolveAsker(sessionToken, websiteId);
+    logConversation({
+      websiteId,
+      askerType,
+      askerId,
+      message,
+      answer: result.answer,
+      wasAnswered: !result.humanFallback,
+      sources: result.sources,
+    }).catch((err) => console.error("[chat-semantic] failed to log conversation:", err instanceof Error ? err.message : err));
 
     res.json({
       answer: result.answer,

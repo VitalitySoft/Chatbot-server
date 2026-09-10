@@ -401,5 +401,63 @@
     }
   });
 
+  // -- Conversation log (every question + answer) -------------------------
+
+  let conversationsLoaded = false;
+
+  function formatAskerLabel(entry) {
+    return entry.askerType === "customer" ? entry.askerId : "Guest";
+  }
+
+  async function loadConversations() {
+    const list = document.getElementById("conversationsList");
+    const empty = document.getElementById("conversationsEmptyState");
+    const disabledNote = document.getElementById("conversationsDisabledNote");
+    try {
+      const entries = await api(`/api/admin/${websiteId}/conversations`);
+      if (entries.length === 0) {
+        list.innerHTML = "";
+        disabledNote.classList.add("hidden");
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+      disabledNote.classList.add("hidden");
+      list.innerHTML = "";
+      for (const entry of entries) {
+        const row = document.createElement("div");
+        row.className = "convo-row";
+        row.innerHTML = `
+          <div class="convo-top">
+            <span class="convo-asker"></span>
+            <span class="convo-badge"></span>
+            <span class="convo-time"></span>
+          </div>
+          <div class="convo-q"></div>
+          <div class="convo-a"></div>
+        `;
+        const askerEl = row.querySelector(".convo-asker");
+        askerEl.textContent = formatAskerLabel(entry);
+        askerEl.classList.toggle("customer", entry.askerType === "customer");
+        const badgeEl = row.querySelector(".convo-badge");
+        badgeEl.textContent = entry.wasAnswered ? "Answered" : "Unanswered";
+        badgeEl.classList.toggle("answered", entry.wasAnswered);
+        row.querySelector(".convo-time").textContent = new Date(entry.createdAt).toLocaleString();
+        row.querySelector(".convo-q").textContent = entry.message;
+        row.querySelector(".convo-a").textContent = entry.answer;
+        list.appendChild(row);
+      }
+    } catch (err) {
+      list.innerHTML = `<p class="error">${err.message}</p>`;
+    }
+  }
+
+  document.getElementById("conversationsDetails").addEventListener("toggle", (e) => {
+    if (e.target.open && !conversationsLoaded) {
+      conversationsLoaded = true;
+      loadConversations();
+    }
+  });
+
   if (sessionToken && websiteId) showApp();
 })();

@@ -6,6 +6,8 @@ import { sanitizePlainText } from "../lib/security/sanitize";
 import { answerQuestion, WebsiteNotFoundError } from "../engine/answerEngine";
 import { getWebsiteConfig } from "../config/websites";
 import { env } from "../config/env";
+import { logConversation } from "../data/conversationLogStore";
+import { resolveAsker } from "../lib/resolveAsker";
 
 export const chatRouter = Router();
 chatRouter.use(chatRateLimiter);
@@ -40,6 +42,20 @@ chatRouter.post(
         callPhone: site?.humanPhone ?? null,
       });
     }
+
+    // Fire-and-forget: logging must never slow down or break a visitor's
+    // answer. Every question and its answer are recorded, not just the
+    // ones that failed -- see conversationLogStore.ts.
+    const { askerType, askerId } = resolveAsker(sessionToken, websiteId);
+    logConversation({
+      websiteId,
+      askerType,
+      askerId,
+      message,
+      answer: result.answer,
+      wasAnswered: !result.humanFallback,
+      sources: result.sources,
+    }).catch((err) => console.error("[chat] failed to log conversation:", err instanceof Error ? err.message : err));
 
     res.json({
       answer: result.answer,

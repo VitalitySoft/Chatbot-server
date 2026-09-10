@@ -18,9 +18,15 @@ export function needsLiveData(message: string): boolean {
 // For a self-service customer (customApiUrl), we can't hardcode SUBJECT_WORDS
 // -- their "subject" is whatever they call their own inventory ("haircut",
 // "bike", "table"), which we only know at runtime from their own data. So
-// for that case the availability word alone is the gate; which specific
-// item (if any) is resolved separately against their real inventory names.
+// for that case an availability word has to work ALONE as the gate, with no
+// paired subject word to keep it honest. That rules out "open"/"left"/"free"
+// from the shared list above -- each has an everyday meaning with nothing to
+// do with inventory ("is Sunday open", "who's left in line", "feel free to
+// ask") that a bare substring match would wrongly catch. Only words that are
+// essentially unambiguous on their own are safe here.
+const STANDALONE_AVAILABILITY_WORDS = ["available", "availability", "avail", "vacancy", "vacant", "occupied", "booked up"];
+
 export function hasAvailabilityWord(message: string): boolean {
   const lower = message.toLowerCase();
-  return AVAILABILITY_WORDS.some((w) => lower.includes(w));
+  return STANDALONE_AVAILABILITY_WORDS.some((w) => lower.includes(w));
 }

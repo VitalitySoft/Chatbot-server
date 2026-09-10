@@ -11,6 +11,7 @@ import { adminKnowledgeRouter } from "./routes/adminKnowledge.routes";
 import { adminDocumentsRouter } from "./routes/adminDocuments.routes";
 import { adminSettingsRouter } from "./routes/adminSettings.routes";
 import { adminUnansweredRouter } from "./routes/adminUnanswered.routes";
+import { adminConversationsRouter } from "./routes/adminConversations.routes";
 import { registerRouter } from "./routes/register.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
@@ -45,6 +46,12 @@ export function createApp() {
   // Self-service "install this on your website" sign-up page.
   app.use("/register", express.static(path.resolve(__dirname, "../public/register")));
 
+  // A local-only dummy business site for manually verifying the register
+  // -> install -> answer flow end to end. Not something a real deployment
+  // would ship.
+  app.use("/dummy-site", express.static(path.resolve(__dirname, "../public/dummy-site")));
+  app.use("/dummy-site-hotel", express.static(path.resolve(__dirname, "../public/dummy-site-hotel")));
+
   app.use("/api/chat", chatRouter);
   app.use("/api/chat-semantic", chatSemanticRouter);
   app.use("/api/website-config", websiteConfigRouter);
@@ -55,6 +62,7 @@ export function createApp() {
   app.use("/api/admin/:websiteId/documents", adminDocumentsRouter);
   app.use("/api/admin/:websiteId/settings", adminSettingsRouter);
   app.use("/api/admin/:websiteId/unanswered", adminUnansweredRouter);
+  app.use("/api/admin/:websiteId/conversations", adminConversationsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

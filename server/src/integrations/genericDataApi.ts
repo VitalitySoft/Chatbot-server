@@ -101,3 +101,22 @@ export function findMentionedItem(message: string, items: GenericInventoryItem[]
 export function mentionsSpecificItem(message: string, items: GenericInventoryItem[]): boolean {
   return findMentionedItem(message, items) !== null;
 }
+
+// A customer's inventory could be rooms, classes, services, products --
+// no single collective noun to key off, unlike the hotel-specific "room"
+// check. So this keys off the QUESTION FORM instead ("what * do you
+// have/offer", "show me your ...", "what options"), which holds regardless
+// of what the items are actually called. Needed because plain keyword or
+// semantic scoring can accidentally match an unrelated section that just
+// happens to share a word (e.g. "Class Policies" for "what classes do you
+// have") instead of recognizing this as a browse-everything question.
+const BROWSING_PATTERNS = [
+  /\bwhat\b.{0,30}\b(do you have|do you offer|is available|are available)\b/i,
+  /\bwhat\b.{0,20}\boptions\b/i,
+  /\bshow me\b/i,
+  /\bwhat.{0,15}\bdo you (sell|provide|do)\b/i,
+];
+
+export function isBrowsingInventoryQuestion(message: string): boolean {
+  return BROWSING_PATTERNS.some((p) => p.test(message));
+}
