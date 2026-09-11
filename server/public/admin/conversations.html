@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Conversation Log</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #14110f;
+    --ink-soft: #292420;
+    --page-bg: #efe6d4;
+    --page-bg-2: #e6dabf;
+    --paper: #fffef9;
+    --paper-dim: #f4efe1;
+    --paper-line: #ded2b4;
+    --brass: #a8672d;
+    --brass-deep: #7a4a1e;
+    --moss: #3f5a4b;
+    --moss-tint: #3f5a4b14;
+    --flag: #b5471f;
+    --flag-tint: #b5471f16;
+    --red: #a4432c;
+    --text: #241f17;
+    --text-dim: #6e6455;
+    --display: "Fraunces", Georgia, serif;
+    --body: "Manrope", -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    background-image:
+      radial-gradient(ellipse 900px 500px at 10% -10%, var(--page-bg-2) 0%, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, var(--page-bg-2) 0%, transparent 55%);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+  }
+  a { color: var(--brass-deep); }
+  .hidden { display: none !important; }
+
+  .topbar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--paper-line);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { height: 24px; width: auto; display: block; }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .site-id { text-align: right; }
+  .site-name { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--text); }
+  .site-slug { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+
+  button { font-family: var(--body); cursor: pointer; }
+  .btn-ghost {
+    background: transparent; color: var(--text-dim); border: 1px solid var(--paper-line);
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; text-decoration: none;
+    display: inline-block;
+  }
+  .btn-ghost:hover { border-color: var(--brass-deep); color: var(--text); }
+  .btn-secondary {
+    background: var(--paper); color: var(--text); border: 1px solid var(--paper-line);
+    border-radius: 7px; padding: 6px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn-secondary:hover { border-color: var(--brass-deep); }
+  .btn-secondary.active { background: var(--ink); color: #fdf8ee; border-color: var(--ink); }
+
+  main { max-width: 760px; margin: 0 auto; padding: 36px 24px 100px; display: flex; flex-direction: column; gap: 20px; }
+  .page-title { font-family: var(--display); font-size: 24px; font-weight: 600; margin: 0; }
+  .page-hint { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.55; }
+
+  .filters { display: flex; gap: 8px; }
+
+  .panel {
+    background: var(--paper); border-radius: 12px; padding: 22px 24px;
+    box-shadow: 0 14px 34px -24px rgba(74,52,20,0.3);
+  }
+  .empty-note { color: var(--text-dim); font-size: 13px; padding: 4px 0; }
+  .error {
+    color: var(--red); background: #a4432c14; border: 1px solid #a4432c33; border-radius: 8px;
+    padding: 10px 13px; font-size: 13px;
+  }
+
+  .convo-row { padding: 13px 0; border-top: 1px dashed var(--paper-line); }
+  .convo-row:first-child { border-top: none; padding-top: 2px; }
+  .convo-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+  .convo-asker {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--paper-dim); color: var(--text-dim);
+  }
+  .convo-asker.customer { background: var(--moss-tint); color: var(--moss); }
+  .convo-badge {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--flag-tint); color: var(--flag);
+  }
+  .convo-badge.answered { background: var(--moss-tint); color: var(--moss); }
+  .convo-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+  .convo-q { font-weight: 700; font-size: 13.5px; color: var(--text); margin-bottom: 3px; }
+  .convo-a { color: var(--text-dim); font-size: 12.5px; line-height: 1.5; }
+
+  @media (max-width: 480px) {
+    .topbar { padding: 14px 18px; }
+    main { padding: 28px 16px 80px; }
+    .panel { padding: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <img class="brand-logo" src="/assets/vitalitysoft-logo.png" alt="Vitalitysoft" />
+  </div>
+  <div class="topbar-right">
+    <div class="site-id">
+      <div class="site-name" id="siteNameOut">&nbsp;</div>
+      <div class="site-slug" id="siteSlugOut"></div>
+    </div>
+    <a href="index.html" class="btn-ghost">&larr; Dashboard</a>
+  </div>
+</div>
+
+<main>
+  <div>
+    <h1 class="page-title">Conversation log</h1>
+    <p class="page-hint">The full transcript: what visitors asked, what the assistant answered, who asked (a guest, or a logged-in customer by name), and whether it was actually answered.</p>
+  </div>
+
+  <div class="filters">
+    <button class="btn-secondary active" data-filter="all">All</button>
+    <button class="btn-secondary" data-filter="unanswered">Unanswered</button>
+    <button class="btn-secondary" data-filter="answered">Answered</button>
+  </div>
+
+  <div class="panel">
+    <div id="conversationsError" class="error hidden"></div>
+    <div id="conversationsList"></div>
+    <p id="conversationsEmptyState" class="empty-note hidden">No conversations logged yet.</p>
+  </div>
+</main>
+
+<script src="conversations.js"></script>
+</body>
+</html>
