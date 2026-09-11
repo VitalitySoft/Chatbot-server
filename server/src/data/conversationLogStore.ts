@@ -55,27 +55,58 @@ export async function logConversation(input: LogConversationInput): Promise<void
   );
 }
 
-export async function listUnanswered(websiteId: string): Promise<ConversationLogEntry[]> {
+export interface UnansweredEntry {
+  id: string;
+  message: string;
+  count: number;
+  lastAskedAt: string;
+}
+
+// Grouped by exact message text -- the same question asked repeatedly
+// (very common: "contact us" asked by many different visitors) collapses
+// into one entry with a count, instead of cluttering the admin's to-do
+// list with a separate row per occurrence.
+export async function listUnanswered(websiteId: string): Promise<UnansweredEntry[]> {
   if (!isChatLogEnabled()) return [];
   const pool = await getPool();
   const { rows } = await pool.query(
-    `SELECT * FROM conversation_logs
+    `SELECT
+       (array_agg(id ORDER BY created_at DESC))[1] AS id,
+       message,
+       COUNT(*)::int AS count,
+       MAX(created_at) AS last_asked_at
+     FROM conversation_logs
      WHERE website_id = $1 AND was_answered = FALSE AND resolved = FALSE
-     ORDER BY created_at DESC
+     GROUP BY message
+     ORDER BY last_asked_at DESC
      LIMIT 200`,
     [websiteId]
   );
-  return rows.map(rowToEntry);
+  return rows.map((row) => ({
+    id: row.id as string,
+    message: row.message as string,
+    count: row.count as number,
+    lastAskedAt: (row.last_asked_at as Date).toISOString(),
+  }));
 }
 
 // Used for both "Answer" (a knowledge article was added for it) and
 // "Dismiss" (admin decided it doesn't need one) -- either way the
-// question is handled, but the row itself is kept, not deleted, since
-// the whole point of this table is a permanent record of what was asked.
+// question is handled, but rows are kept, never deleted, since the whole
+// point of this table is a permanent record of what was asked. Resolves
+// every row with the SAME message text, not just the one `id` passed in
+// (which is just one representative occurrence, per listUnanswered's
+// grouping) -- otherwise a question asked 5 times would still show 4
+// left after clicking Answer/Dismiss once.
 export async function resolveConversation(websiteId: string, id: string): Promise<boolean> {
   if (!isChatLogEnabled()) return false;
   const pool = await getPool();
-  const { rowCount } = await pool.query(`UPDATE conversation_logs SET resolved = TRUE WHERE id = $1 AND website_id = $2`, [id, websiteId]);
+  const { rows } = await pool.query(`SELECT message FROM conversation_logs WHERE id = $1 AND website_id = $2`, [id, websiteId]);
+  if (rows.length === 0) return false;
+  const { rowCount } = await pool.query(
+    `UPDATE conversation_logs SET resolved = TRUE WHERE website_id = $1 AND message = $2 AND resolved = FALSE`,
+    [websiteId, rows[0].message]
+  );
   return (rowCount ?? 0) > 0;
 }
 
